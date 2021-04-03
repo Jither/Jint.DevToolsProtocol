@@ -9,7 +9,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "External", "External", "{DC
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint", "..\Jint\Jint\Jint.csproj", "{412D03D7-55AE-4564-86B5-53667F78285E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DevToolsTest", "DevToolsTest\DevToolsTest.csproj", "{F83723C3-4D63-48D3-A3AD-84F72E720D86}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DevToolsExample", "DevToolsExample\DevToolsExample.csproj", "{F83723C3-4D63-48D3-A3AD-84F72E720D86}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
