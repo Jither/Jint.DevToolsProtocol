@@ -9,6 +9,7 @@ using Jint.Native.Object;
 using Jint.Native.Proxy;
 using Jint.Native.RegExp;
 using Jint.Native.Set;
+using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using System;
 using System.Collections.Generic;
@@ -352,6 +353,17 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         public StackTrace StackTrace { get; set; }
         public RemoteObject Exception { get; set; }
         public int ExecutionContextId { get; set; }
+
+        public ExceptionDetails(JavaScriptException ex)
+        {
+            Text = ex.Message;
+            LineNumber = ex.LineNumber - 1;
+            ColumnNumber = ex.Column;
+            ScriptId = ex.Location.Source;
+            // TODO: ExceptionId, Url, StackTrace, ExecutionContextId
+            Exception = new RemoteObject(ex.Error);
+            
+        }
     }
 
     // https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-ExecutionContextDescription

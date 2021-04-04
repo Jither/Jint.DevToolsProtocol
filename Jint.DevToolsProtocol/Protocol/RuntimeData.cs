@@ -3,6 +3,7 @@ using Jint.DevToolsProtocol.Helpers;
 using Jint.DevToolsProtocol.Protocol.Domains;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime.Debugger;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -16,6 +17,11 @@ namespace Jint.DevToolsProtocol.Protocol
         public Dictionary<string, SourceData> SourcesByDebuggerId { get; } = new Dictionary<string, SourceData>();
         public Dictionary<string, ObjectInstance> ObjectsById { get; } = new Dictionary<string, ObjectInstance>();
         public Dictionary<ObjectInstance, string> IdsByObject { get; } = new Dictionary<ObjectInstance, string>();
+
+        /// <summary>
+        /// Current DebugInformation (when paused - null when running)
+        /// </summary>
+        public DebugInformation DebugInformation { get; set; }
 
         public RuntimeData(Engine engine)
         {

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Jint.Native;
+using Jint.Runtime;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,9 +13,11 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
     public class DebuggerDomain : Domain
     {
         private bool _isEnabled;
+        private Engine _engine;
 
-        public DebuggerDomain(Agent agent) : base(agent)
+        public DebuggerDomain(Agent agent, Engine engine) : base(agent)
         {
+            _engine = engine;
             agent.Debugger.Paused += Debugger_Paused;
             agent.Debugger.Resumed += Debugger_Resumed;
         }
@@ -22,11 +26,13 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         private void Debugger_Paused(object sender, Jint.Runtime.Debugger.DebugInformation e)
         {
+            _agent.RuntimeData.DebugInformation = e;
             SendPaused(e);
         }
 
         private void Debugger_Resumed(object sender, EventArgs e)
         {
+            _agent.RuntimeData.DebugInformation = null;
             SendResumed();
         }
 
@@ -53,7 +59,43 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         public DebuggerEvaluateResponse EvaluateOnCallFrame(string callFrameId, string expression, string objectGroup,
             bool? includeCommandLineAPI, bool? silent, bool? returnByValue, bool? generatePreview, bool? throwOnSideEffect, double? timeout)
         {
-            return new DebuggerEvaluateResponse();
+            if (_agent.RuntimeData.DebugInformation == null)
+            {
+                return null;
+            }
+
+            int callFrameIndex = Int32.Parse(callFrameId);
+            if (callFrameIndex == 0)
+            {
+                try
+                {
+                    JsValue result = _engine.Execute(expression).GetCompletionValue();
+                    return new DebuggerEvaluateResponse
+                    {
+                        Result = _agent.RuntimeData.GetRemoteObject(result, generatePreview == true)
+                    };
+                }
+                catch (JavaScriptException ex)
+                {
+                    return new DebuggerEvaluateResponse
+                    {
+                        Result = null,
+                        // TODO: This calls RemoteObject constructor directly - rewrite to store the objectId
+                        ExceptionDetails = new ExceptionDetails(ex)
+                    };
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+            else
+            {
+                return new DebuggerEvaluateResponse
+                {
+                    Result = _agent.RuntimeData.GetRemoteObject(JsValue.FromObject(_engine, "<evaluation on non-top call frames not supported yet>"))
+                };
+            }
         }
 
         public PossibleBreakpointsResponse GetPossibleBreakpoints(Location start, Location end, bool? restrictToFunction)
@@ -199,7 +241,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                     Location = new Location(frame.Location.Start, _agent.RuntimeData.GetScriptId(frame.Location.Source)),
                     FunctionLocation = frame.FunctionLocation != null ? new Location(frame.FunctionLocation.Value.Start, frame.FunctionLocation.Value.Source) : null,
                     ScopeChain = CreateScopeChain(frame),
-                    This = _agent.RuntimeData.GetRemoteObject(frame.This)
+                    This = _agent.RuntimeData.GetRemoteObject(frame.This, generatePreview: true)
                 }).ToArray(),
                 Reason = PauseReason.DebugCommand
             };

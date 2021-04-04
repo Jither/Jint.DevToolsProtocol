@@ -26,7 +26,7 @@ namespace Jint.DevToolsProtocol.Protocol
 
             RuntimeData = new RuntimeData(engine);
             Debugger = new Debugger(this, engine);
-            DebuggerDomain = new DebuggerDomain(this);
+            DebuggerDomain = new DebuggerDomain(this, engine);
             RegisterDomain(DebuggerDomain);
             RegisterDomain(new RuntimeDomain(this));
         }

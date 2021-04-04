@@ -66,7 +66,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                     IsOwn = true,
                     Configurable = false,
                     Name = p.Name,
-                    Value = _agent.RuntimeData.GetRemoteObject(p.Value)
+                    Value = _agent.RuntimeData.GetRemoteObject(p.Value, generatePreview: true)
                 }).ToArray()
             };
         }
