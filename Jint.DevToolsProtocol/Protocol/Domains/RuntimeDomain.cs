@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace Jint.DevToolsProtocol.Protocol.Domains
@@ -52,7 +53,22 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public PropertiesResponse GetProperties(string objectId, bool? ownProperties, bool? accessorPropertiesOnly, bool? generatePreview)
         {
-            return new PropertiesResponse();
+            if (!_agent.RuntimeData.ObjectsById.TryGetValue(objectId, out var obj))
+            {
+                return null;
+            }
+
+            var props = obj.GetOwnProperties().Select(pair => new { Name = pair.Key.ToString(), Value = pair.Value.Value });
+            return new PropertiesResponse
+            {
+                Result = props.Select(p => new PropertyDescriptor
+                {
+                    IsOwn = true,
+                    Configurable = false,
+                    Name = p.Name,
+                    Value = _agent.RuntimeData.GetRemoteObject(p.Value)
+                }).ToArray()
+            };
         }
 
         public NamesResponse GlobalLexicalScopeNames(int executionContextId)
@@ -77,7 +93,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public void RunIfWaitingForDebugger()
         {
-
+            _agent.RunIfWaiting();
         }
 
         public RuntimeEvaluateResponse RunScript(string scriptId, int? executionContextId, string objectGroup, bool? silent, bool? includeCommandLineAPI,

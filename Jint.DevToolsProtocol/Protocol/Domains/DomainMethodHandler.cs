@@ -1,4 +1,5 @@
-﻿using Jint.DevToolsProtocol.Helpers;
+﻿using Jint.DevToolsProtocol.Handlers;
+using Jint.DevToolsProtocol.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
@@ -32,7 +33,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                 if (arguments.TryGetValue(parameter.Name, out JsonElement argument))
                 {
                     var json = argument.GetRawText();
-                    var obj = JsonSerializer.Deserialize(json, parameter.Type);
+                    var obj = JsonSerializer.Deserialize(json, parameter.Type, Serialization.JsonOptions);
                     args[i] = obj;
                 }
             }

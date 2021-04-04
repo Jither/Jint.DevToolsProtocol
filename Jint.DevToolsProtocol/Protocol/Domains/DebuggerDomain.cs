@@ -1,17 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
+
+using DebugScopeType = Jint.Runtime.Debugger.DebugScopeType;
 
 namespace Jint.DevToolsProtocol.Protocol.Domains
 {
     public class DebuggerDomain : Domain
     {
+        private bool _isEnabled;
+
         public DebuggerDomain(Agent agent) : base(agent)
         {
+            agent.Debugger.Paused += Debugger_Paused;
+            agent.Debugger.Resumed += Debugger_Resumed;
         }
 
         public override string Name => "Debugger";
+
+        private void Debugger_Paused(object sender, Jint.Runtime.Debugger.DebugInformation e)
+        {
+            SendPaused(e);
+        }
+
+        private void Debugger_Resumed(object sender, EventArgs e)
+        {
+            SendResumed();
+        }
 
         public void ContinueToLocation(Location location, TargetCallFrames? targetCallFrames)
         {
@@ -20,12 +37,17 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public void Disable()
         {
-
+            _isEnabled = false;
         }
 
         public EnableResponse Enable(double? maxScriptsCacheSize)
         {
-            return new EnableResponse();
+            _isEnabled = true;
+            SendScripts();
+            return new EnableResponse
+            {
+                DebuggerId = _agent.Debugger.Id
+            };
         }
 
         public DebuggerEvaluateResponse EvaluateOnCallFrame(string callFrameId, string expression, string objectGroup,
@@ -41,12 +63,19 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public ScriptSourceResponse GetScriptSource(string scriptId)
         {
-            return new ScriptSourceResponse();
+            if (!_agent.RuntimeData.SourcesByDebuggerId.TryGetValue(scriptId, out var sourceData))
+            {
+                return null;
+            }
+            return new ScriptSourceResponse
+            {
+                ScriptSource = sourceData.Source
+            };
         }
 
         public void Pause()
         {
-
+            _agent.Debugger.Pause();
         }
 
         public void RemoveBreakpoint(string breakpointId)
@@ -61,7 +90,8 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public void Resume(bool? terminateOnResume)
         {
-
+            // TODO: terminateOnResume
+            _agent.Debugger.Run();
         }
 
         public SearchResponse SearchInContent(string scriptId, string query, bool? caseSensitive, bool? isRegex)
@@ -116,17 +146,17 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public void StepInto(bool? breakOnAsyncCall, LocationRange[] skipList)
         {
-
+            _agent.Debugger.StepInto();
         }
 
         public void StepOut()
         {
-
+            _agent.Debugger.StepOut();
         }
 
         public void StepOver(LocationRange[] skipList)
         {
-            
+            _agent.Debugger.StepOver();
         }
 
         public StackTraceResponse GetStackTrace(StackTraceId stackTraceId)
@@ -153,6 +183,93 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         {
             
         }
+
+        /***
+         * Events
+         **/
+
+        internal void SendPaused(Jint.Runtime.Debugger.DebugInformation info)
+        {
+            var evt = new PausedEvent
+            {
+                CallFrames = info.CallStack.Select((frame, index) => new CallFrame
+                {
+                    CallFrameId = index.ToString(),
+                    FunctionName = frame.FunctionName,
+                    Location = new Location(frame.Location.Start, _agent.RuntimeData.GetScriptId(frame.Location.Source)),
+                    FunctionLocation = frame.FunctionLocation != null ? new Location(frame.FunctionLocation.Value.Start, frame.FunctionLocation.Value.Source) : null,
+                    ScopeChain = CreateScopeChain(frame),
+                    This = _agent.RuntimeData.GetRemoteObject(frame.This)
+                }).ToArray(),
+                Reason = PauseReason.DebugCommand
+            };
+
+            TriggerEvent("paused", evt);
+        }
+
+        internal void SendResumed()
+        {
+            TriggerEvent("resumed", new ResumedEvent());
+        }
+
+        internal void SendScripts()
+        {
+            if (!_isEnabled)
+            {
+                return;
+            }
+            var sources = _agent.RuntimeData.SourcesByDebuggerId;
+
+            foreach (var source in sources.Values)
+            {
+                if (source.Sent)
+                {
+                    continue;
+                }
+                var evt = new ScriptParsedEvent
+                {
+                    ScriptId = source.Id,
+                    Url = source.Url,
+                    StartLine = 0,
+                    StartColumn = 0,
+                    EndLine = source.End.LineNumber,
+                    EndColumn = source.End.ColumnNumber,
+                    ExecutionContextId = 1, // TODO: Proper execution context
+                    Hash = source.Hash,
+                    IsModule = false,
+                    IsLiveEdit = false,
+                    Length = source.Length,
+                    ScriptLanguage = ScriptLanguage.JavaScript
+                };
+                source.Sent = true;
+
+                TriggerEvent("scriptParsed", evt);
+            }
+        }
+
+        private Scope[] CreateScopeChain(Jint.Runtime.Debugger.CallFrame frame)
+        {
+            return frame.ScopeChain.Select(scope => new Scope
+            {
+                Type = scope.ScopeType switch
+                {
+                    DebugScopeType.Block => ScopeType.Block,
+                    DebugScopeType.Catch => ScopeType.Catch,
+                    DebugScopeType.Closure => ScopeType.Closure,
+                    DebugScopeType.Eval => ScopeType.Eval,
+                    DebugScopeType.Global => ScopeType.Global,
+                    DebugScopeType.Local => ScopeType.Local,
+                    DebugScopeType.Module => ScopeType.Module,
+                    DebugScopeType.Script => ScopeType.Script,
+                    DebugScopeType.WasmExpressionStack => ScopeType.WasmExpressionStack,
+                    DebugScopeType.With => ScopeType.With,
+                    _ => throw new NotImplementedException($"Scope type {scope.ScopeType} is not supported")
+                },
+                // For global and with scopes [Object] represents the actual object;
+                // for the rest of the scopes, it is artificial transient object enumerating scope variables as its properties.
+                Object = _agent.RuntimeData.GetRemoteObject(scope)
+            }).ToArray();
+        }
     }
 
     /***
@@ -161,7 +278,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
     public class EnableResponse
     {
-        public string UniqueDebuggerId { get; set; }
+        public string DebuggerId { get; set; }
     }
 
     public class DebuggerEvaluateResponse
@@ -277,7 +394,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         public int StartColumn { get; set; }
         public int EndLine { get; set; }
         public int EndColumn { get; set; }
-        public string ExecutionContextId { get; set; }
+        public int ExecutionContextId { get; set; }
         public string Hash { get; set; }
         public object ExecutionContextAuxData { get; set; }
         public bool? IsLiveEdit { get; set; }

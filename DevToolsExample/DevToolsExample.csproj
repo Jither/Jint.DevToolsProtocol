@@ -6,6 +6,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="scripts\scopes.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="scripts\scopes.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Jint.DevToolsProtocol\Jint.DevToolsProtocol.csproj" />
   </ItemGroup>
 

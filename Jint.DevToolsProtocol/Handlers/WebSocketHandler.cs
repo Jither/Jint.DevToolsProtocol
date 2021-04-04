@@ -11,7 +11,6 @@ namespace Jint.DevToolsProtocol.Handlers
 {
     public class WebSocketHandler
     {
-        private static readonly JsonSerializerOptions _jsonOptions = CreateJsonOptions();
         private readonly Agent _agent;
         private readonly IDTPServer _server;
 
@@ -23,11 +22,13 @@ namespace Jint.DevToolsProtocol.Handlers
 
         public bool HandleRequest(string requestJson, out string responseJson)
         {
-            var message = JsonSerializer.Deserialize<DevToolsRequest>(requestJson, _jsonOptions);
+            Logger.Info("");
+            var message = JsonSerializer.Deserialize<DevToolsRequest>(requestJson, Serialization.JsonOptions);
             Logger.Info(message.ToString());
             if (_agent.CallMethod(message, out DevToolsResponse response))
             {
-                responseJson = JsonSerializer.Serialize<object>(response, _jsonOptions);
+                responseJson = JsonSerializer.Serialize<object>(response, Serialization.JsonOptions);
+                Logger.Info($"Response: {responseJson}");
                 return true;
             }
             Logger.Warning($"{message.Method} not supported.");
@@ -37,15 +38,9 @@ namespace Jint.DevToolsProtocol.Handlers
 
         public async Task SendEventAsync(DevToolsEvent evt)
         {
-            var json = JsonSerializer.Serialize(evt, _jsonOptions);
+            var json = JsonSerializer.Serialize(evt, Serialization.JsonOptions);
+            Logger.Info($"Event: {json}");
             await _server.SendEventAsync(json);
-        }
-
-        private static JsonSerializerOptions CreateJsonOptions()
-        {
-            var result = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, IgnoreNullValues = true };
-            result.Converters.Add(new StringEnumMemberConverter());
-            return result;
         }
     }
 }

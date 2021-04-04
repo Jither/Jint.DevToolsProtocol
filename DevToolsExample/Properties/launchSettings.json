@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DevToolsExample": {
+      "commandName": "Project",
+      "commandLineArgs": "scripts\\scopes.js 9223"
+    }
+  }
+}

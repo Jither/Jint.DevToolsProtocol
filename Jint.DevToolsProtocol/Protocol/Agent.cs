@@ -1,4 +1,5 @@
 ﻿using Jint.DevToolsProtocol.Handlers;
+using Jint.DevToolsProtocol.Logging;
 using Jint.DevToolsProtocol.Protocol.Domains;
 using Jint.DevToolsProtocol.Server;
 using System;
@@ -16,25 +17,40 @@ namespace Jint.DevToolsProtocol.Protocol
         private readonly WebSocketHandler _wsHandler;
         private readonly Dictionary<string, Domain> _domainsByName = new Dictionary<string, Domain>();
 
-        public Agent(IDTPServer server)
+        public Agent(Engine engine, IDTPServer server)
         {
-            this._httpHandler = new HttpHandler(server.Options);
-            this._wsHandler = new WebSocketHandler(this, server);
+            _httpHandler = new HttpHandler(server.Options);
+            _wsHandler = new WebSocketHandler(this, server);
             server.HttpRequestHandler = _httpHandler.HandleRequest;
             server.WebSocketRequestHandler = _wsHandler.HandleRequest;
 
-            RegisterDomain(new DebuggerDomain(this));
+            RuntimeData = new RuntimeData(engine);
+            Debugger = new Debugger(this, engine);
+            DebuggerDomain = new DebuggerDomain(this);
+            RegisterDomain(DebuggerDomain);
             RegisterDomain(new RuntimeDomain(this));
         }
 
-        public async void TriggerEvent(DevToolsEvent evt)
+        public RuntimeData RuntimeData { get; }
+        public Debugger Debugger { get; }
+        public DebuggerDomain DebuggerDomain { get; }
+        public event EventHandler Ready;
+
+        public async void TriggerEvent(string method, DevToolsEventParameters parameters)
         {
-            await this._wsHandler.SendEventAsync(evt);
+            Logger.Info($"Sending event: {method}");
+            var evt = new DevToolsEvent(method, parameters);
+            await _wsHandler.SendEventAsync(evt);
+        }
+
+        public void RunIfWaiting()
+        {
+            Ready?.Invoke(this, EventArgs.Empty);
         }
 
         public bool CallMethod(DevToolsRequest message, out DevToolsResponse response)
         {
-            if (!_domainsByName.TryGetValue(message.Function, out var domain))
+            if (!_domainsByName.TryGetValue(message.Domain, out var domain))
             {
                 response = null;
                 return false;

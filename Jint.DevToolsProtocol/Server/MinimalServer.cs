@@ -239,7 +239,7 @@ namespace Jint.DevToolsProtocol.Server
                 return;
             }
 
-            await client.SendJsonAsync(messageJson);
+            await client.SendJsonAsync(responseJson);
         }
 
         private async Task WriteJsonAsync(HttpListenerContext context, string json)

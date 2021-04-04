@@ -8,7 +8,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 {
     public abstract class Domain
     {
-        private readonly Agent _agent;
+        protected readonly Agent _agent;
         private static readonly HashSet<string> EXCLUDE_METHODS = new HashSet<string> { "HandleMessage", "ToString", "GetHashCode", "Equals", "GetType", "get_Name" };
         private readonly Dictionary<string, DomainMethodHandler> _handlersByName = new Dictionary<string, DomainMethodHandler>();
 
@@ -25,6 +25,10 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             if (_handlersByName.TryGetValue(message.Function, out DomainMethodHandler handler))
             {
                 var returnValue = handler.Invoke(message.Params);
+                if (returnValue == null)
+                {
+                    returnValue = new { };
+                }
                 result = new DevToolsResponse(message, returnValue);
                 return true;
             }
@@ -34,7 +38,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         protected void TriggerEvent(string method, DevToolsEventParameters parameters)
         {
-            _agent.TriggerEvent(new DevToolsEvent($"{Name}.{method}", parameters));
+            _agent.TriggerEvent($"{Name}.{method}", parameters);
         }
 
         private void RegisterHandlers()

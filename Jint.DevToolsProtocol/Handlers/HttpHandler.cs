@@ -37,7 +37,7 @@ namespace Jint.DevToolsProtocol.Handlers
                         {
                             ["description"] = $"{_options.Name}",
                             ["favIconUrl"] = $"{_options.FavIconUrl}",
-                            ["devtoolsFrontendUrl"] = $"devtools://devtools/bundled/inspector.html?ws={_options.WebSocketHost}",
+                            ["devtoolsFrontendUrl"] = $"devtools://devtools/bundled/js_app.html?ws={_options.WebSocketHost}&v8only=true",
                             ["id"] = null,
                             ["title"] = "Jint Script",
                             ["url"] = null,
