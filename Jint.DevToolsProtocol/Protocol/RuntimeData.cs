@@ -47,7 +47,7 @@ namespace Jint.DevToolsProtocol.Protocol
         {
             if (scope.BindingObject != null)
             {
-                return GetRemoteObject(scope.BindingObject);
+                return GetRemoteObject(scope.BindingObject, generatePreview: true);
             }
 
             // Create transient object for scope object
@@ -61,10 +61,10 @@ namespace Jint.DevToolsProtocol.Protocol
                     scope.GetBindingValue(name) ?? JsValue.Undefined,
                     false, false, false);
             }
-            return GetRemoteObject(obj);
+            return GetRemoteObject(obj, generatePreview: true);
         }
 
-        public RemoteObject GetRemoteObject(JsValue value)
+        public RemoteObject GetRemoteObject(JsValue value, bool generatePreview = false)
         {
             string id = null;
             if (value is ObjectInstance obj)
@@ -77,7 +77,7 @@ namespace Jint.DevToolsProtocol.Protocol
                 }
             }
 
-            return new RemoteObject(value)
+            return new RemoteObject(value, generatePreview)
             {
                 ObjectId = id
             };

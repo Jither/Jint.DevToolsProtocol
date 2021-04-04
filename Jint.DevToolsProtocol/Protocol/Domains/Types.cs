@@ -1,15 +1,18 @@
-﻿using Jint.Native;
+﻿using Jint.DevToolsProtocol.Helpers;
+using Jint.Native;
 using Jint.Native.Array;
 using Jint.Native.Date;
 using Jint.Native.Error;
 using Jint.Native.Function;
 using Jint.Native.Map;
+using Jint.Native.Object;
 using Jint.Native.Proxy;
 using Jint.Native.RegExp;
 using Jint.Native.Set;
 using Jint.Runtime.Debugger;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 
@@ -387,125 +390,39 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
     public class RemoteObject
     {
         public ObjectType Type { get; set; }
-        public ObjectSubType Subtype { get; set; }
+        public ObjectSubType? Subtype { get; set; }
         public string ClassName { get; set; }
         public object Value { get; set; }
         public string UnserializableValue { get; set; }
         public string Description { get; set; }
         public string ObjectId { get; set; }
-        public ObjectPreview ObjectPreview { get; set; }
+        public ObjectPreview Preview { get; set; }
         public CustomPreview CustomPreview { get; set; }
 
-        public RemoteObject(JsValue value)
+        public RemoteObject(JsValue value, bool generatePreview = false)
         {
             // TODO: Check for what cases this happens (other than uninitialized let/const)
             if (value == null)
             {
                 value = JsValue.Undefined;
             }
-            switch (value.Type)
+
+            (Type, Subtype, Value, Description) = JsValueHelpers.GetObjectInfo(value);
+
+            // Numbers that cannot be represented as JSON:
+            if (Value is double num && (double.IsInfinity(num) || double.IsNaN(num) || num == -0d))
             {
-                case Runtime.Types.Boolean:
-                    Type = ObjectType.Boolean;
-                    Value = value.AsBoolean();
-                    break;
-
-                case Runtime.Types.Null:
-                    Type = ObjectType.Object;
-                    Subtype = ObjectSubType.Null;
-                    Value = null;
-                    break;
-
-                case Runtime.Types.Number:
-                    Type = ObjectType.Number;
-                    var num = value.AsNumber();
-                    // Numbers that cannot be represented as JSON:
-                    if (double.IsInfinity(num) || double.IsNaN(num) || num == -0d)
-                    {
-                        UnserializableValue = num.ToString();
-                    }
-                    else
-                    {
-                        Value = num;
-                    }
-                    break;
-
-                case Runtime.Types.Object:
-                    // TODO: ArrayBuffer, DataView, Generator, Iterator, (Node), Promise, TypedArray, WasmValue, WeakMap, WeakSet, WebAssemblyMemory
-                    Type = value is FunctionInstance ? ObjectType.Function : ObjectType.Object;
-
-                    if (Type == ObjectType.Object)
-                    {
-                        if (value is ArrayInstance)
-                        {
-                            Subtype = ObjectSubType.Array;
-                        }
-                        else if (value is DateInstance)
-                        {
-                            Subtype = ObjectSubType.Date;
-                        }
-                        else if (value is RegExpInstance)
-                        {
-                            Subtype = ObjectSubType.RegExp;
-                        }
-                        else if (value is ErrorInstance)
-                        {
-                            Subtype = ObjectSubType.Error;
-                        }
-                        else if (value is MapInstance)
-                        {
-                            Subtype = ObjectSubType.Map;
-                        }
-                        else if (value is SetInstance)
-                        {
-                            Subtype = ObjectSubType.Set;
-                        }
-                        else if (value is ProxyInstance)
-                        {
-                            Subtype = ObjectSubType.Proxy;
-                        }
-
-                        var obj = value.AsObject();
-                        ClassName = obj.Get("constructor")?.Get("name").AsString();
-                    }
-                    Value = null;
-                    break;
-
-                case Runtime.Types.String:
-                    Type = ObjectType.String;
-                    Value = value.AsString();
-                    break;
-
-                case Runtime.Types.Symbol:
-                    Type = ObjectType.Symbol;
-                    Value = null;
-                    break;
-
-                case Runtime.Types.Undefined:
-                    Type = ObjectType.Undefined;
-                    Value = JsValue.Undefined;
-                    break;
-
-                default:
-                    throw new ArgumentException($"Unimplemented JsValue type: {value.Type}");
+                Value = null;
+                UnserializableValue = num.ToString();
             }
-            Description = value.ToString();
-        }
 
-        public static ObjectType GetType(JsValue value)
-        {
-            switch (value.Type)
+            if (value is ObjectInstance obj)
             {
-                case Runtime.Types.Boolean: return ObjectType.Boolean;
-                case Runtime.Types.Null: return ObjectType.Object;
-                case Runtime.Types.Number: return ObjectType.Number;
-                case Runtime.Types.Object: return value is FunctionInstance ? ObjectType.Function : ObjectType.Object;
-                case Runtime.Types.String: return ObjectType.String;
-                case Runtime.Types.Symbol: return ObjectType.Symbol;
-                case Runtime.Types.Undefined: return ObjectType.Undefined;
-                case Runtime.Types.None:
-                default:
-                    throw new ArgumentException($"Unexpected {value.Type} type on JsValue");
+                ClassName = obj.Get("constructor")?.Get("name").AsString();
+                if (generatePreview)
+                {
+                    Preview = new ObjectPreview(obj, Type, Subtype, Description);
+                }
             }
         }
     }
@@ -537,11 +454,22 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
     public class ObjectPreview
     {
         public ObjectType Type { get; set; }
-        public ObjectSubType Subtype { get; set; }
+        public ObjectSubType? Subtype { get; set; }
         public string Description { get; set; }
         public bool Overflow { get; set; }
         public PropertyPreview[] Properties { get; set; }
         public EntryPreview[] Entries { get; set; }
+
+        public ObjectPreview(ObjectInstance obj, ObjectType type, ObjectSubType? subtype, string description)
+        {
+            Type = type;
+            Subtype = subtype;
+            Description = description;
+            int maxCount = 5;
+            var props = obj.GetOwnProperties().Take(maxCount + 1).ToArray();
+            Properties = props.Take(maxCount).Select(p => new PropertyPreview(p.Key.ToString(), p.Value.Value)).ToArray();
+            Overflow = props.Length > Properties.Length;
+        }
     }
 
     // https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-PrivatePropertyDescriptor
@@ -560,7 +488,15 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         public ObjectType Type { get; set; }
         public string Value { get; set; }
         public ObjectPreview ValuePreview { get; set; }
-        public ObjectSubType Subtype { get; set; }
+        public ObjectSubType? Subtype { get; set; }
+
+        public PropertyPreview(string name, JsValue jsValue)
+        {
+            object value;
+            (Type, Subtype, value, _) = JsValueHelpers.GetObjectInfo(jsValue);
+            Name = name;
+            Value = value?.ToString();
+        }
     }
 
     // https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#type-StackTraceId
