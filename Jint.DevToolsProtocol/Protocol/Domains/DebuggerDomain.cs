@@ -1,15 +1,56 @@
 ﻿using Jint.Native;
 using Jint.Runtime;
+using Jint.Runtime.Debugger;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
-
+using System.Text.RegularExpressions;
 using DebugScopeType = Jint.Runtime.Debugger.DebugScopeType;
 
 namespace Jint.DevToolsProtocol.Protocol.Domains
 {
+    public class PendingBreakPoint
+    {
+        public string Url { get; }
+        public Regex UrlRegex { get; }
+        public string ScriptHash { get; }
+
+        public int LineNumber { get; }
+        public int? ColumnNumber { get; }
+        public string Condition { get; }
+
+        public List<BreakPoint> BreakPoints { get; } = new List<BreakPoint>();
+
+        public PendingBreakPoint(string url, Regex urlRegex, string scriptHash, int lineNumber, int? columnNumber, string condition)
+        {
+            Url = url;
+            UrlRegex = urlRegex;
+            ScriptHash = scriptHash;
+            LineNumber = lineNumber;
+            ColumnNumber = columnNumber;
+            Condition = condition;
+        }
+
+        public bool Matches(SourceData source)
+        {
+            if (Url != null && source.Url == Url)
+            {
+                return true;
+            }
+            if (ScriptHash != null && source.Hash == ScriptHash)
+            {
+                return true;
+            }
+            if (UrlRegex != null && UrlRegex.IsMatch(source.Url))
+            {
+                return true;
+            }
+            return false;
+        }
+    }
+
     public class DebuggerDomain : Domain
     {
         private bool _isEnabled;
@@ -100,12 +141,16 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public PossibleBreakpointsResponse GetPossibleBreakpoints(Location start, Location end, bool? restrictToFunction)
         {
-            return new PossibleBreakpointsResponse();
+            //var breakPointResolver = new BreakPointResolver(_agent.RuntimeData);
+            return new PossibleBreakpointsResponse
+            {
+                //Locations = breakPointResolver.GetPossibleBreakPoints(start, end, restrictToFunction == true)
+            };
         }
 
         public ScriptSourceResponse GetScriptSource(string scriptId)
         {
-            if (!_agent.RuntimeData.SourcesByDebuggerId.TryGetValue(scriptId, out var sourceData))
+            if (!_agent.RuntimeData.SourcesByScriptId.TryGetValue(scriptId, out var sourceData))
             {
                 return null;
             }
@@ -122,7 +167,11 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public void RemoveBreakpoint(string breakpointId)
         {
-
+            var breakPoints = _agent.RuntimeData.RemoveBreakPoint(breakpointId);
+            foreach (var breakPoint in breakPoints)
+            {
+                _engine.DebugHandler.BreakPoints.Remove(breakPoint);
+            }
         }
 
         public RestartFrameResponse RestartFrame(string callFrameId)
@@ -148,12 +197,33 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public BreakpointResponse SetBreakpoint(Location location, string condition)
         {
-            return new BreakpointResponse();
+            var sourceData = _agent.RuntimeData.SourcesByScriptId[location.ScriptId];
+            var actualLocation = sourceData.FindNearestBreak(location);
+
+            var breakPoint = new BreakPoint(sourceData.SourceId, actualLocation.LineNumber + 1, actualLocation.ColumnNumber, condition);
+            string id = _agent.RuntimeData.AddBreakPoint(breakPoint);
+
+            return new BreakpointResponse
+            {
+                ActualLocation = actualLocation,
+                BreakpointId = id
+            };
         }
 
         public BreakpointByUrlResponse SetBreakpointByUrl(int lineNumber, string url, string urlRegex, string scriptHash, int? columnNumber, string condition)
         {
-            return new BreakpointByUrlResponse();
+            // TODO: Make sure the kinds of regex sent are valid in C#. Maybe use Esprima scanner?
+            var rx = urlRegex != null ? new Regex(urlRegex) : null;
+            var pending = new PendingBreakPoint(url, rx, scriptHash, lineNumber, columnNumber, condition);
+            string id = _agent.RuntimeData.AddPendingBreakPoint(pending);
+
+            var breakPoints = SetBreakPoints(pending);
+
+            return new BreakpointByUrlResponse
+            {
+                BreakpointId = id,
+                Locations = breakPoints.Select(bp => new Location { ScriptId = _agent.RuntimeData.GetScriptId(bp.Source), LineNumber = bp.Line - 1, ColumnNumber = bp.Column }).ToArray()
+            };
         }
 
         public void SetBreakpointsActive(bool active)
@@ -260,7 +330,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             {
                 return;
             }
-            var sources = _agent.RuntimeData.SourcesByDebuggerId;
+            var sources = _agent.RuntimeData.SourcesByScriptId;
 
             foreach (var source in sources.Values)
             {
@@ -270,7 +340,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                 }
                 var evt = new ScriptParsedEvent
                 {
-                    ScriptId = source.Id,
+                    ScriptId = source.ScriptId,
                     Url = source.Url,
                     StartLine = 0,
                     StartColumn = 0,
@@ -311,6 +381,22 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                 // for the rest of the scopes, it is artificial transient object enumerating scope variables as its properties.
                 Object = _agent.RuntimeData.GetRemoteObject(scope)
             }).ToArray();
+        }
+
+        private List<BreakPoint> SetBreakPoints(PendingBreakPoint definition)
+        {
+            var result = new List<BreakPoint>();
+            var sourceDatas = _agent.RuntimeData.FindSources(definition);
+            foreach (var sourceData in sourceDatas)
+            {
+                var actualLocation = sourceData.FindNearestBreak(new Location { LineNumber = definition.LineNumber, ColumnNumber = definition.ColumnNumber ?? 0 });
+
+                var breakPoint = new BreakPoint(sourceData.SourceId, actualLocation.LineNumber + 1, actualLocation.ColumnNumber, definition.Condition);
+                _engine.DebugHandler.BreakPoints.Add(breakPoint);
+                result.Add(breakPoint);
+            }
+            definition.BreakPoints.AddRange(result);
+            return result;
         }
     }
 

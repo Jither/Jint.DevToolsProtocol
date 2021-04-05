@@ -13,6 +13,7 @@ using Jint.Runtime;
 using Jint.Runtime.Debugger;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
@@ -236,7 +237,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
     // https://chromedevtools.github.io/devtools-protocol/tot/Debugger/#type-BreakLocation
     public class BreakLocation : Location
     {
-        public BreakLocationType Type { get; set; }
+        public BreakLocationType? Type { get; set; }
     }
 
     // https://chromedevtools.github.io/devtools-protocol/tot/Debugger/#type-DebugSymbols
@@ -293,7 +294,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
     }
 
     // https://chromedevtools.github.io/devtools-protocol/tot/Debugger/#type-ScriptPosition
-    public class ScriptPosition
+    public class ScriptPosition : IComparable<ScriptPosition>
     {
         public int LineNumber { get; set; }
         public int ColumnNumber { get; set; }
@@ -312,6 +313,15 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         {
             LineNumber = lineNumber;
             ColumnNumber = columnNumber;
+        }
+
+        public int CompareTo([AllowNull] ScriptPosition other)
+        {
+            if (LineNumber != other.LineNumber)
+            {
+                return LineNumber - other.LineNumber;
+            }
+            return ColumnNumber - other.ColumnNumber;
         }
     }
 
