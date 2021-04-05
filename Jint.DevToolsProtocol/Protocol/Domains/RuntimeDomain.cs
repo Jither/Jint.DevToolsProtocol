@@ -13,43 +13,57 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public override string Name => "Runtime";
 
+        /*
         public RuntimeEvaluateResponse AwaitPromise(string promiseObjectId, bool? returnByValue, bool? generatePreview)
         {
             return new RuntimeEvaluateResponse();
         }
+        */
 
+        /*
         public RuntimeEvaluateResponse CallFunctionOn(string functionDeclaration, string objectId, CallArgument[] arguments,
             bool? silent, bool? returnByValue, bool? generatePreview, bool? userGesture, bool? awaitPromise, int? executionContextId, string objectGroup)
         {
             return new RuntimeEvaluateResponse();
         }
+        */
 
+        /*
         public CompileScriptResponse CompileScript(string expression, string sourceURL, bool persistScript, int? executionContextId)
         {
             return new CompileScriptResponse();
         }
+        */
 
+        /*
         public void Disable()
         {
 
         }
+        */
 
+        /*
         public void DiscardConsoleEntries()
         {
 
         }
+        */
 
+        /*
         public void Enable()
         {
 
         }
+        */
 
+        /*
         public RuntimeEvaluateResponse Evaluate(string expression, string objectGroup, bool? includeCommandLineAPI, bool? silent, int? contextId,
             bool? returnByValue, bool? generatePreview, bool? userGesture, bool? awaitPromise, bool? throwOnSideEffect, double? timeout,
             bool? disableBreaks, bool? replMode, bool? allowUnsafeEvalBlockedByCSP, string uniqueContextId)
         {
             return new RuntimeEvaluateResponse();
         }
+        */
 
         public PropertiesResponse GetProperties(string objectId, bool? ownProperties, bool? accessorPropertiesOnly, bool? generatePreview)
         {
@@ -71,76 +85,102 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             };
         }
 
+        /*
         public NamesResponse GlobalLexicalScopeNames(int executionContextId)
         {
             return new NamesResponse();
         }
+        */
 
+        /*
         public ObjectsResponse QueryObjects(string prototypeObjectId, string objectGroup)
         {
             return new ObjectsResponse();
         }
+        */
 
+        /*
         public void ReleaseObject(string objectId)
         {
 
         }
+        */
 
+        /*
         public void ReleaseObjectGroup(string objectGroup)
         {
 
         }
+        */
 
         public void RunIfWaitingForDebugger()
         {
             _agent.RunIfWaiting();
         }
 
+        /*
         public RuntimeEvaluateResponse RunScript(string scriptId, int? executionContextId, string objectGroup, bool? silent, bool? includeCommandLineAPI,
             bool? returnByValue, bool? generatePreview, bool? awaitPromise)
         {
             return new RuntimeEvaluateResponse();
         }
+        */
 
+        /*
         public void SetAsyncCallStackDepth(int maxDepth)
         {
             
         }
+        */
 
+        /*
         public void AddBinding(int? executionContextId, string executionContextName)
         {
 
         }
+        */
 
+        /*
         public HeapUsageResponse GetHeapUsage()
         {
             return new HeapUsageResponse();
         }
+        */
 
+        /*
         public IdResponse GetIsolateId()
         {
             return new IdResponse();
         }
+        */
 
+        /*
         public void RemoveBinding(string name)
         {
             
         }
+        */
 
+        /*
         public void SetCustomObjectFormatterEnabled(bool enabled)
         {
 
         }
+        */
 
+        /*
         public void SetMaxCallStackSizeToCapture(int size)
         {
 
         }
+        */
 
+        /*
         public void TerminateExecution()
         {
 
         }
+        */
     }
 
     /***

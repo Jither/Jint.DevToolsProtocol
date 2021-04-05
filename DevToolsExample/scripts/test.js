@@ -9,10 +9,14 @@ const obj = {
 	baz: "beef"
 };
 
+for (let i = 0; i < 5; i++)
 {
-	let blockLet = 1;
 	const blockConst = 2;
+	globalLet += i * blockConst;
 }
+
+// Test of column breakpoints
+if (globalLet > 42) { globalLet = "hello"; globalLet += " world"; }
 
 function outerFunction()
 {
@@ -25,20 +29,12 @@ function outerFunction()
 		let innerLet = outerLet;
 		var innerVar = outerVar;
 
+		if (outerVar > outerLet)
 		{
 			const innerBlockConst = 6;
 			let innerBlockLet = 7;
 			var innerBlockVar = 8;
-
-			function innerMostFunction()
-			{
-				const innerMostConst = innerBlockConst;
-				let innerMostLet = innerBlockLet;
-				var innerMostVar = innerBlockVar;
-			}
 		}
-
-		innerMostFunction();
 	}
 
 	innerFunction();

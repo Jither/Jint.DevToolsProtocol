@@ -2,7 +2,7 @@
   "profiles": {
     "DevToolsExample": {
       "commandName": "Project",
-      "commandLineArgs": "scripts\\scopes.js 9223"
+      "commandLineArgs": "scripts\\test.js 9223"
     }
   }
 }

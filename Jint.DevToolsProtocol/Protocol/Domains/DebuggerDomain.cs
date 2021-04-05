@@ -4,10 +4,7 @@ using Jint.Runtime.Debugger;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using DebugScopeType = Jint.Runtime.Debugger.DebugScopeType;
 
 namespace Jint.DevToolsProtocol.Protocol.Domains
 {
@@ -65,7 +62,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public override string Name => "Debugger";
 
-        private void Debugger_Paused(object sender, Jint.Runtime.Debugger.DebugInformation e)
+        private void Debugger_Paused(object sender, DebugInformation e)
         {
             _agent.RuntimeData.DebugInformation = e;
             SendPaused(e);
@@ -77,10 +74,12 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             SendResumed();
         }
 
+        /*
         public void ContinueToLocation(Location location, TargetCallFrames? targetCallFrames)
         {
 
         }
+        */
 
         public void Disable()
         {
@@ -141,10 +140,43 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public PossibleBreakpointsResponse GetPossibleBreakpoints(Location start, Location end, bool? restrictToFunction)
         {
-            //var breakPointResolver = new BreakPointResolver(_agent.RuntimeData);
+            if (start.ScriptId != end.ScriptId)
+            {
+                // "scriptId in start and end range locations should be the same."
+                return null;
+            }
+
+            if (!_agent.RuntimeData.SourcesByScriptId.TryGetValue(start.ScriptId, out var sourceData))
+            {
+                return null;
+            }
+
+            var startIndex = sourceData.BreakLocations.BinarySearch(new BreakLocation { LineNumber = start.LineNumber, ColumnNumber = start.ColumnNumber });
+            var endIndex = sourceData.BreakLocations.BinarySearch(new BreakLocation { LineNumber = end.LineNumber, ColumnNumber = end.ColumnNumber });
+
+            if (startIndex < 0)
+            {
+                // Get the index of the location that's after our search
+                startIndex = ~startIndex;
+            }
+            if (endIndex < 0)
+            {
+                // Get the index *before* the location that's after our search
+                endIndex = ~endIndex;
+                if (endIndex > 0)
+                {
+                    endIndex--;
+                }
+            }
+
+            // Start and end indices are inclusive
+            int count = endIndex - startIndex + 1;
+
+            // TODO: restrictToFunction
+
             return new PossibleBreakpointsResponse
             {
-                //Locations = breakPointResolver.GetPossibleBreakPoints(start, end, restrictToFunction == true)
+                Locations = sourceData.BreakLocations.Skip(startIndex).Take(count).ToArray()
             };
         }
 
@@ -174,10 +206,12 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             }
         }
 
+        /*
         public RestartFrameResponse RestartFrame(string callFrameId)
         {
             return new RestartFrameResponse();
         }
+        */
 
         public void Resume(bool? terminateOnResume)
         {
@@ -185,15 +219,19 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             _agent.Debugger.Run();
         }
 
+        /*
         public SearchResponse SearchInContent(string scriptId, string query, bool? caseSensitive, bool? isRegex)
         {
             return new SearchResponse();
         }
+        */
 
+        /*
         public void SetAsyncCallStackDepth(int maxDepth)
         {
             
         }
+        */
 
         public BreakpointResponse SetBreakpoint(Location location, string condition)
         {
@@ -228,33 +266,43 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public void SetBreakpointsActive(bool active)
         {
-
+            _engine.DebugHandler.BreakPoints.Active = active;
         }
 
+        /*
         public BreakpointIdResponse SetInstrumentationBreakpoint(Instrumentation instrumentation)
         {
             return new BreakpointIdResponse();
         }
+        */
 
+        /*
         public void SetPauseOnExceptions(ExceptionsState state)
         {
 
         }
+        */
 
+        /*
         public SetScriptSourceResponse SetScriptSource(string scriptId, string scriptSource, bool? dryRun)
         {
             return new SetScriptSourceResponse();
         }
+        */
 
+        /*
         public void SetSkipAllPauses(bool skip)
         {
 
         }
+        */
 
+        /*
         public void SetVariableValue(int scopeNumber, string variableName, CallArgument newValue, string callFrameId)
         {
 
         }
+        */
 
         public void StepInto(bool? breakOnAsyncCall, LocationRange[] skipList)
         {
@@ -271,36 +319,46 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             _agent.Debugger.StepOver();
         }
 
+        /*
         public StackTraceResponse GetStackTrace(StackTraceId stackTraceId)
         {
             return new StackTraceResponse();
         }
+        */
 
+        /*
         public void SetBlackboxedRanges(string scriptId, ScriptPosition[] positions)
         {
 
         }
+        */
 
+        /*
         public void SetBlackboxPatterns(string[] patterns)
         {
 
         }
+        */
 
+        /*
         public BreakpointIdResponse SetBreakpointOnFunctionCall(string objectId, string condition)
         {
             return new BreakpointIdResponse();
         }
+        */
 
+        /*
         public void SetReturnValue(CallArgument newValue)
         {
             
         }
+        */
 
         /***
          * Events
          **/
 
-        internal void SendPaused(Jint.Runtime.Debugger.DebugInformation info)
+        internal void SendPaused(DebugInformation info)
         {
             var evt = new PausedEvent
             {

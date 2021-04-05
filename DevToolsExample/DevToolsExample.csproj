@@ -6,11 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="scripts\scopes.js" />
+    <None Remove="scripts\test.js" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="scripts\scopes.js">
+    <Content Include="scripts\test.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
