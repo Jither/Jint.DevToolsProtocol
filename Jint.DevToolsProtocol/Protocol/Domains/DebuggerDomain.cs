@@ -112,7 +112,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                     JsValue result = _engine.Execute(expression).GetCompletionValue();
                     return new DebuggerEvaluateResponse
                     {
-                        Result = _agent.RuntimeData.GetRemoteObject(result, generatePreview == true)
+                        Result = _agent.RuntimeData.GetRemoteObject(result, generatePreview == true, objectGroup: objectGroup)
                     };
                 }
                 catch (JavaScriptException ex)
@@ -145,8 +145,8 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                 // "scriptId in start and end range locations should be the same."
                 return null;
             }
-
-            if (!_agent.RuntimeData.SourcesByScriptId.TryGetValue(start.ScriptId, out var sourceData))
+            var sourceData = _agent.RuntimeData.GetSourceByScriptId(start.ScriptId);
+            if (sourceData == null)
             {
                 return null;
             }
@@ -182,7 +182,8 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public ScriptSourceResponse GetScriptSource(string scriptId)
         {
-            if (!_agent.RuntimeData.SourcesByScriptId.TryGetValue(scriptId, out var sourceData))
+            var sourceData = _agent.RuntimeData.GetSourceByScriptId(scriptId);
+            if (sourceData == null)
             {
                 return null;
             }
@@ -202,7 +203,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             var breakPoints = _agent.RuntimeData.RemoveBreakPoint(breakpointId);
             foreach (var breakPoint in breakPoints)
             {
-                _engine.DebugHandler.BreakPoints.Remove(breakPoint);
+                _engine.DebugHandler.BreakPoints.RemoveAt(breakPoint.Location);
             }
         }
 
@@ -235,7 +236,11 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public BreakpointResponse SetBreakpoint(Location location, string condition)
         {
-            var sourceData = _agent.RuntimeData.SourcesByScriptId[location.ScriptId];
+            var sourceData = _agent.RuntimeData.GetSourceByScriptId(location.ScriptId);
+            if (sourceData == null)
+            {
+                return null;
+            }
             var actualLocation = sourceData.FindNearestBreak(location);
 
             var breakPoint = new BreakPoint(sourceData.SourceId, actualLocation.LineNumber + 1, actualLocation.ColumnNumber, condition);
@@ -260,7 +265,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             return new BreakpointByUrlResponse
             {
                 BreakpointId = id,
-                Locations = breakPoints.Select(bp => new Location { ScriptId = _agent.RuntimeData.GetScriptId(bp.Source), LineNumber = bp.Line - 1, ColumnNumber = bp.Column }).ToArray()
+                Locations = breakPoints.Select(bp => new Location { ScriptId = _agent.RuntimeData.SourceIdToScriptId(bp.Location.Source), LineNumber = bp.Location.Line - 1, ColumnNumber = bp.Location.Column }).ToArray()
             };
         }
 
@@ -366,7 +371,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                 {
                     CallFrameId = index.ToString(),
                     FunctionName = frame.FunctionName,
-                    Location = new Location(frame.Location.Start, _agent.RuntimeData.GetScriptId(frame.Location.Source)),
+                    Location = new Location(frame.Location.Start, _agent.RuntimeData.SourceIdToScriptId(frame.Location.Source)),
                     FunctionLocation = frame.FunctionLocation != null ? new Location(frame.FunctionLocation.Value.Start, frame.FunctionLocation.Value.Source) : null,
                     ScopeChain = CreateScopeChain(frame),
                     This = _agent.RuntimeData.GetRemoteObject(frame.This, generatePreview: true)
@@ -388,9 +393,9 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
             {
                 return;
             }
-            var sources = _agent.RuntimeData.SourcesByScriptId;
+            var sources = _agent.RuntimeData.GetAllSources();
 
-            foreach (var source in sources.Values)
+            foreach (var source in sources)
             {
                 if (source.Sent)
                 {
@@ -450,7 +455,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                 var actualLocation = sourceData.FindNearestBreak(new Location { LineNumber = definition.LineNumber, ColumnNumber = definition.ColumnNumber ?? 0 });
 
                 var breakPoint = new BreakPoint(sourceData.SourceId, actualLocation.LineNumber + 1, actualLocation.ColumnNumber, definition.Condition);
-                _engine.DebugHandler.BreakPoints.Add(breakPoint);
+                _engine.DebugHandler.BreakPoints.Set(breakPoint);
                 result.Add(breakPoint);
             }
             definition.BreakPoints.AddRange(result);

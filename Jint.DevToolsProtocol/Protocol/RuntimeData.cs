@@ -18,17 +18,19 @@ namespace Jint.DevToolsProtocol.Protocol
         /// <summary>
         /// Dictionary of SourceData by Source ID (value of Source property on nodes in Jint/Esprima)
         /// </summary>
-        public Dictionary<string, SourceData> SourcesBySourceId { get; } = new Dictionary<string, SourceData>();
+        private Dictionary<string, SourceData> _sourcesBySourceId = new Dictionary<string, SourceData>();
         /// <summary>
         /// Dictionary of SourceData by Script ID (ID used in communication with devtools)
         /// </summary>
-        public Dictionary<string, SourceData> SourcesByScriptId { get; } = new Dictionary<string, SourceData>();
-        public Dictionary<string, ObjectInstance> ObjectsById { get; } = new Dictionary<string, ObjectInstance>();
-        public Dictionary<ObjectInstance, string> IdsByObject { get; } = new Dictionary<ObjectInstance, string>();
+        private Dictionary<string, SourceData> _sourcesByScriptId = new Dictionary<string, SourceData>();
+        
+        private Dictionary<string, ObjectInstance> _objectsById = new Dictionary<string, ObjectInstance>();
+        private Dictionary<ObjectInstance, string> _idsByObject = new Dictionary<ObjectInstance, string>();
+        private Dictionary<string, List<string>> _objectGroups = new Dictionary<string, List<string>>();
 
         private int _nextBreakPointId = 1;
-        private Dictionary<string, BreakPoint> _breakPoints = new Dictionary<string, BreakPoint>();
-        private Dictionary<string, PendingBreakPoint> _pendingBreakPoints = new Dictionary<string, PendingBreakPoint>();
+        private readonly Dictionary<string, BreakPoint> _breakPoints = new Dictionary<string, BreakPoint>();
+        private readonly Dictionary<string, PendingBreakPoint> _pendingBreakPoints = new Dictionary<string, PendingBreakPoint>();
 
         /// <summary>
         /// Current DebugInformation (when paused - null when running)
@@ -42,19 +44,33 @@ namespace Jint.DevToolsProtocol.Protocol
 
         public SourceData AddSource(string sourceId, string url, string source, Script ast)
         {
-            if (!SourcesBySourceId.TryGetValue(sourceId, out var data))
+            if (!_sourcesBySourceId.TryGetValue(sourceId, out var data))
             {
-                string scriptId = $"jint:{SourcesByScriptId.Count + 1}";
+                string scriptId = $"jint:{_sourcesByScriptId.Count + 1}";
                 data = new SourceData(scriptId, sourceId, url, source, ast);
-                SourcesBySourceId.Add(sourceId, data);
-                SourcesByScriptId.Add(scriptId, data);
+                _sourcesBySourceId.Add(sourceId, data);
+                _sourcesByScriptId.Add(scriptId, data);
             }
             return data;
         }
 
+        public SourceData GetSourceByScriptId(string scriptId)
+        {
+            if (_sourcesByScriptId.TryGetValue(scriptId, out var result))
+            {
+                return result;
+            }
+            return null;
+        }
+
+        public IEnumerable<SourceData> GetAllSources()
+        {
+            return _sourcesByScriptId.Values;
+        }
+
         public IEnumerable<SourceData> FindSources(PendingBreakPoint breakPoint)
         {
-            return SourcesBySourceId.Values.Where(s => breakPoint.Matches(s));
+            return _sourcesBySourceId.Values.Where(s => breakPoint.Matches(s));
         }
 
         public string AddBreakPoint(BreakPoint breakPoint)
@@ -88,16 +104,16 @@ namespace Jint.DevToolsProtocol.Protocol
             return Enumerable.Empty<BreakPoint>();
         }
 
-        public string GetScriptId(string sourceId)
+        public string SourceIdToScriptId(string sourceId)
         {
-            if (!SourcesBySourceId.TryGetValue(sourceId, out var data))
+            if (!_sourcesBySourceId.TryGetValue(sourceId, out var data))
             {
                 return null;
             }
             return data.ScriptId;
         }
 
-        public RemoteObject GetRemoteObject(Jint.Runtime.Debugger.DebugScope scope)
+        public RemoteObject GetRemoteObject(DebugScope scope)
         {
             if (scope.BindingObject != null)
             {
@@ -118,16 +134,26 @@ namespace Jint.DevToolsProtocol.Protocol
             return GetRemoteObject(obj, generatePreview: true);
         }
 
-        public RemoteObject GetRemoteObject(JsValue value, bool generatePreview = false)
+        public RemoteObject GetRemoteObject(JsValue value, bool generatePreview = false, string objectGroup = null)
         {
             string id = null;
             if (value is ObjectInstance obj)
             {
-                if (!this.IdsByObject.TryGetValue(obj, out id))
+                if (!this._idsByObject.TryGetValue(obj, out id))
                 {
-                    id = ObjectsById.Count.ToString() + 1;
-                    IdsByObject.Add(obj, id);
-                    ObjectsById.Add(id, obj);
+                    id = _objectsById.Count.ToString() + 1;
+                    _idsByObject.Add(obj, id);
+                    _objectsById.Add(id, obj);
+
+                    if (objectGroup != null)
+                    {
+                        List<string> group;
+                        if (!this._objectGroups.TryGetValue(objectGroup, out group))
+                        {
+                            group = new List<string>();
+                        }
+                        group.Add(id);
+                    }
                 }
             }
 
@@ -136,11 +162,39 @@ namespace Jint.DevToolsProtocol.Protocol
                 ObjectId = id
             };
         }
+
+        public ObjectInstance GetObject(string id)
+        {
+            if (_objectsById.TryGetValue(id, out var obj))
+            {
+                return obj;
+            }
+            return null;
+        }
+
+        public void ReleaseObject(string id)
+        {
+            _objectsById.TryGetValue(id, out ObjectInstance obj);
+            _objectsById.Remove(id);
+            _idsByObject.Remove(obj);
+        }
+
+        public void ReleaseObjectGroup(string objectGroup)
+        {
+            if (_objectGroups.TryGetValue(objectGroup, out var ids))
+            {
+                foreach (var id in ids)
+                {
+                    ReleaseObject(id);
+                }
+            }
+            _objectGroups.Remove(objectGroup);
+        }
     }
 
     public class SourceData
     {
-        private List<BreakLocation> _breakLocations;
+        private List<Domains.BreakLocation> _breakLocations;
 
         public SourceData(string scriptId, string sourceId, string url, string source, Script ast)
         {
@@ -169,11 +223,11 @@ namespace Jint.DevToolsProtocol.Protocol
         public ScriptPosition End { get; }
         public string Hash { get; }
         public int Length => Source.Length;
-        public List<BreakLocation> BreakLocations => _breakLocations ??= CollectBreakLocations();
+        public List<Domains.BreakLocation> BreakLocations => _breakLocations ??= CollectBreakLocations();
 
         public bool Sent { get; set; }
 
-        private List<BreakLocation> CollectBreakLocations()
+        private List<Domains.BreakLocation> CollectBreakLocations()
         {
             var collector = new BreakPointCollector(ScriptId);
             collector.Visit(Ast);
@@ -183,7 +237,7 @@ namespace Jint.DevToolsProtocol.Protocol
         public Location FindNearestBreak(Location location)
         {
             var locations = BreakLocations;
-            int index = locations.BinarySearch(new BreakLocation { ColumnNumber = location.ColumnNumber, LineNumber = location.LineNumber });
+            int index = locations.BinarySearch(new Domains.BreakLocation { ColumnNumber = location.ColumnNumber, LineNumber = location.LineNumber });
             if (index < 0)
             {
                 // Get the first break after the location
@@ -195,10 +249,10 @@ namespace Jint.DevToolsProtocol.Protocol
 
     public class BreakPointCollector : AstVisitor
     {
-        private List<BreakLocation> _positions = new List<BreakLocation>();
+        private List<Domains.BreakLocation> _positions = new List<Domains.BreakLocation>();
         private readonly string _scriptId;
 
-        public List<BreakLocation> Positions => _positions;
+        public List<Domains.BreakLocation> Positions => _positions;
 
         public BreakPointCollector(string scriptId)
         {
@@ -207,7 +261,7 @@ namespace Jint.DevToolsProtocol.Protocol
 
         protected override void VisitStatement(Statement statement)
         {
-            _positions.Add(new BreakLocation
+            _positions.Add(new Domains.BreakLocation
             {
                 LineNumber = statement.Location.Start.Line - 1,
                 ColumnNumber = statement.Location.Start.Column,
@@ -222,7 +276,7 @@ namespace Jint.DevToolsProtocol.Protocol
             base.VisitArrowFunctionExpression(arrowFunctionExpression);
 
             var position = arrowFunctionExpression.Body.Location.End;
-            _positions.Add(new BreakLocation
+            _positions.Add(new Domains.BreakLocation
             {
                 Type = BreakLocationType.Return,
                 LineNumber = position.Line - 1,
@@ -236,7 +290,7 @@ namespace Jint.DevToolsProtocol.Protocol
             base.VisitFunctionDeclaration(functionDeclaration);
 
             var position = functionDeclaration.Body.Location.End;
-            _positions.Add(new BreakLocation
+            _positions.Add(new Domains.BreakLocation
             {
                 Type = BreakLocationType.Return,
                 LineNumber = position.Line - 1,
@@ -250,7 +304,7 @@ namespace Jint.DevToolsProtocol.Protocol
             base.VisitFunctionExpression(function);
 
             var position = function.Body.Location.End;
-            _positions.Add(new BreakLocation
+            _positions.Add(new Domains.BreakLocation
             {
                 Type = BreakLocationType.Return,
                 LineNumber = position.Line - 1,

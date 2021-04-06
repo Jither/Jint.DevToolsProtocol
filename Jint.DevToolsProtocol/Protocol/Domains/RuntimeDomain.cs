@@ -67,7 +67,8 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 
         public PropertiesResponse GetProperties(string objectId, bool? ownProperties, bool? accessorPropertiesOnly, bool? generatePreview)
         {
-            if (!_agent.RuntimeData.ObjectsById.TryGetValue(objectId, out var obj))
+            var obj = _agent.RuntimeData.GetObject(objectId);
+            if (obj == null)
             {
                 return null;
             }
@@ -99,19 +100,15 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         }
         */
 
-        /*
         public void ReleaseObject(string objectId)
         {
-
+            _agent.RuntimeData.ReleaseObject(objectId);
         }
-        */
 
-        /*
         public void ReleaseObjectGroup(string objectGroup)
         {
-
+            _agent.RuntimeData.ReleaseObjectGroup(objectGroup);
         }
-        */
 
         public void RunIfWaitingForDebugger()
         {
