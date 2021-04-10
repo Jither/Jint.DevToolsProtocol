@@ -9,11 +9,11 @@ namespace Jint.DevToolsProtocol.Handlers
 {
     public class HttpHandler
     {
-        private readonly ServerOptions _options;
+        private readonly IDTPServer _server;
 
-        public HttpHandler(ServerOptions options)
+        public HttpHandler(IDTPServer server)
         {
-            _options = options;
+            _server = server;
         }
 
         public bool HandleRequest(string path, out string response)
@@ -23,10 +23,10 @@ namespace Jint.DevToolsProtocol.Handlers
                 case "/json/version":
                     response = ToJson(new Dictionary<string, string>
                     {
-                        ["Browser"] = $"{_options.Name}/{_options.Version}",
+                        ["Browser"] = $"{_server.Name}/{_server.Version}",
                         ["Protocol-Version"] = Agent.ProtocolVersion,
                         ["Jint-Version"] = Agent.JintVersion,
-                        ["webSocketDebuggerUrl"] = $"{_options.WebSocketUri}"
+                        ["webSocketDebuggerUrl"] = $"{_server.WebSocketUri}"
                     });
                     return true;
                 case "/json":
@@ -35,14 +35,14 @@ namespace Jint.DevToolsProtocol.Handlers
                     {
                         new Dictionary<string, string>
                         {
-                            ["description"] = $"{_options.Name}",
-                            ["favIconUrl"] = $"{_options.FavIconUrl}",
-                            ["devtoolsFrontendUrl"] = $"devtools://devtools/bundled/js_app.html?ws={_options.WebSocketHost}&v8only=true",
+                            ["description"] = $"{_server.Name}",
+                            ["favIconUrl"] = $"{_server.FavIconUrl}",
+                            ["devtoolsFrontendUrl"] = $"devtools://devtools/bundled/js_app.html?ws={_server.WebSocketHost}&v8only=true",
                             ["id"] = null,
                             ["title"] = "Jint Script",
                             ["url"] = null,
                             ["type"] = "other",
-                            ["webSocketDebuggerUrl"] = $"{_options.WebSocketUri}"
+                            ["webSocketDebuggerUrl"] = $"{_server.WebSocketUri}"
                         }
                     });
                     return true;

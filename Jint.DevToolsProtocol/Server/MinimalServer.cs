@@ -16,6 +16,7 @@ namespace Jint.DevToolsProtocol.Server
     {
         private const int CloseSocketTimeout = 2500;
 
+        private readonly ServerOptions _options;
         private HttpListener _listener;
         private bool _isRunning = true;
 
@@ -27,10 +28,15 @@ namespace Jint.DevToolsProtocol.Server
 
         public MinimalServer(ServerOptions options = null)
         {
-            Options = options ?? new ServerOptions();
+            _options = options ?? new ServerOptions();
         }
 
-        public ServerOptions Options { get; }
+        public string Name => _options.Name;
+        public string Version => _options.Version;
+        public string WebSocketUri => $"ws://{WebSocketHost}/";
+        public string WebSocketHost => $"{_options.HostName}:{_options.Port}";
+        public string FavIconUrl => _options.FavIconUrl;
+
         public RequestHandlerDelegate HttpRequestHandler { get; set; }
         public RequestHandlerDelegate WebSocketRequestHandler { get; set; }
 
@@ -50,7 +56,8 @@ namespace Jint.DevToolsProtocol.Server
 
             _listener = new HttpListener();
 
-            _listener.Prefixes.Add(Options.HttpUri);
+            string httpUri = $"http://{WebSocketHost}/";
+            _listener.Prefixes.Add(httpUri);
 
             _listener.Start();
 
@@ -59,7 +66,7 @@ namespace Jint.DevToolsProtocol.Server
                 throw new ServerException("Server failed to start");
             }
 
-            Logger.Info($"Listening on {Options.HttpUri}...");
+            Logger.Info($"Listening on {httpUri}...");
 
             Task.Run(() => ListenerProcessingLoopAsync().ConfigureAwait(false));
         }

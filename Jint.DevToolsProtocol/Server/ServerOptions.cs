@@ -13,10 +13,6 @@ namespace Jint.DevToolsProtocol.Server
         public string HostName { get; private set; } = "127.0.0.1";
         public string FavIconUrl { get; private set; } = null;
 
-        public string WebSocketHost => $"{HostName}:{Port}";
-        public string WebSocketUri => $"ws://{WebSocketHost}/";
-        public string HttpUri => $"http://{WebSocketHost}/";
-
         public ServerOptions UsePort(int port)
         {
             Port = port;

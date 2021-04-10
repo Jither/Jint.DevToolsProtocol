@@ -19,7 +19,7 @@ namespace Jint.DevToolsProtocol.Protocol
 
         public Agent(Engine engine, IDTPServer server)
         {
-            _httpHandler = new HttpHandler(server.Options);
+            _httpHandler = new HttpHandler(server);
             _wsHandler = new WebSocketHandler(this, server);
             server.HttpRequestHandler = _httpHandler.HandleRequest;
             server.WebSocketRequestHandler = _wsHandler.HandleRequest;
