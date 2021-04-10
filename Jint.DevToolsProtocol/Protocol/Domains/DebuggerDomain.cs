@@ -51,7 +51,7 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
     public class DebuggerDomain : Domain
     {
         private bool _isEnabled;
-        private Engine _engine;
+        private readonly Engine _engine;
 
         public DebuggerDomain(Agent agent, Engine engine) : base(agent)
         {
@@ -419,6 +419,8 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
                 source.Sent = true;
 
                 TriggerEvent("scriptParsed", evt);
+
+                // TODO: Check pending breakpoints
             }
         }
 

@@ -7,7 +7,7 @@ namespace Jint.DevToolsProtocol
     {
         private readonly Dictionary<int, ObjectData> _dataById = new Dictionary<int, ObjectData>();
         private readonly Dictionary<ObjectInstance, ObjectData> _dataByInstance = new Dictionary<ObjectInstance, ObjectData>();
-        private Dictionary<string, List<int>> _objectGroups = new Dictionary<string, List<int>>();
+        private readonly Dictionary<string, List<int>> _objectGroups = new Dictionary<string, List<int>>();
 
         private int _nextObjectId = 1;
 
@@ -41,8 +41,7 @@ namespace Jint.DevToolsProtocol
 
             if (objectGroup != null)
             {
-                List<int> group;
-                if (!this._objectGroups.TryGetValue(objectGroup, out group))
+                if (!this._objectGroups.TryGetValue(objectGroup, out List<int> group))
                 {
                     group = new List<int>();
                 }

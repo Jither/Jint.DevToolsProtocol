@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DevToolsExample", "DevTools
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Jint.Tests", "..\Jint\Jint.Tests\Jint.Tests.csproj", "{63A003A3-E87B-4E40-BEBD-64C86A86FC5A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint.Tests.DevToolsProtocol", "Jint.Tests.DevToolsProtocol\Jint.Tests.DevToolsProtocol.csproj", "{EF4003EC-0AA3-4E96-9772-C8F012FCEE0B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{63A003A3-E87B-4E40-BEBD-64C86A86FC5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{63A003A3-E87B-4E40-BEBD-64C86A86FC5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{63A003A3-E87B-4E40-BEBD-64C86A86FC5A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF4003EC-0AA3-4E96-9772-C8F012FCEE0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF4003EC-0AA3-4E96-9772-C8F012FCEE0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF4003EC-0AA3-4E96-9772-C8F012FCEE0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF4003EC-0AA3-4E96-9772-C8F012FCEE0B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

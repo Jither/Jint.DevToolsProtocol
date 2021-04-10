@@ -19,13 +19,13 @@ namespace Jint.DevToolsProtocol.Protocol
         /// <summary>
         /// Dictionary of SourceData by Source ID (value of Source property on nodes in Jint/Esprima)
         /// </summary>
-        private Dictionary<string, SourceData> _sourcesBySourceId = new Dictionary<string, SourceData>();
+        private readonly Dictionary<string, SourceData> _sourcesBySourceId = new Dictionary<string, SourceData>();
         /// <summary>
         /// Dictionary of SourceData by Script ID (ID used in communication with devtools)
         /// </summary>
-        private Dictionary<string, SourceData> _sourcesByScriptId = new Dictionary<string, SourceData>();
+        private readonly Dictionary<string, SourceData> _sourcesByScriptId = new Dictionary<string, SourceData>();
 
-        private ObjectDataMap _objectData = new ObjectDataMap();
+        private readonly ObjectDataMap _objectData = new ObjectDataMap();
 
         private int _nextBreakPointId = 1;
 
@@ -175,8 +175,7 @@ namespace Jint.DevToolsProtocol.Protocol
             Source = source;
             Ast = ast;
             End = source.FindEndPosition();
-            // TODO: For now we use GetHashCode - Chrome uses 160 bit hash
-            Hash = source.HashCodeToId();
+            Hash = ScriptHashHelper.Hash(source);
         }
 
         /// <summary>
@@ -220,7 +219,7 @@ namespace Jint.DevToolsProtocol.Protocol
 
     public class BreakPointCollector : AstVisitor
     {
-        private List<Domains.BreakLocation> _positions = new List<Domains.BreakLocation>();
+        private readonly List<Domains.BreakLocation> _positions = new List<Domains.BreakLocation>();
         private readonly string _scriptId;
 
         public List<Domains.BreakLocation> Positions => _positions;
