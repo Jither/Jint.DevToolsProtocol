@@ -5,12 +5,12 @@ using System.Text;
 namespace Jint.DevToolsProtocol.Helpers
 {
 	public static class ScriptHashHelper
-    {
-        private static uint[] _prime = { 0x3FB75161, 0xAB1F4E4F, 0x82675BC5, 0xCD924D35, 0x81ABE279 };
-        // These particular "random" constants may look familiar to people who know their SHA-1.
+	{
+		private static readonly uint[] _prime = { 0x3FB75161, 0xAB1F4E4F, 0x82675BC5, 0xCD924D35, 0x81ABE279 };
+		// These particular "random" constants may look familiar to people who know their SHA-1.
 		// However, this is *not* SHA-1 (far from it).
-        private static uint[] _random = { 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0 };
-        private static uint[] _randomOdd = { 0xB4663807, 0xCC322BF5, 0xD4F91BBD, 0xA7BEA11D, 0x8F462907 };
+		private static readonly uint[] _random = { 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0 };
+		private static readonly uint[] _randomOdd = { 0xB4663807, 0xCC322BF5, 0xD4F91BBD, 0xA7BEA11D, 0x8F462907 };
 
 		/// <summary>
 		/// Generates script hashes identical to V8.
@@ -19,7 +19,7 @@ namespace Jint.DevToolsProtocol.Helpers
 		/// See <see href="https://chromium.googlesource.com/v8/v8.git/+/refs/heads/master/src/inspector/v8-debugger-script.cc"/>
 		/// </remarks>
 		public static string Hash(string str)
-        {
+		{
 			// These arrays will only ever hold integers within the 32-bit range.
 			// So why are they ulong? Solely to avoid a lot of casting below - since multiplications etc.
 			// are intended to be 64-bit arithmetic.
@@ -69,5 +69,5 @@ namespace Jint.DevToolsProtocol.Helpers
 			}
 			return result;
 		}
-    }
+	}
 }
