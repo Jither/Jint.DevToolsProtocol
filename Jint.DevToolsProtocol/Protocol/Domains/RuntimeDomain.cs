@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Jint.Native;
+using Jint.Native.Symbol;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,6 +9,8 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
 {
     public class RuntimeDomain : Domain
     {
+        private bool _enabled;
+
         public RuntimeDomain(Agent agent) : base(agent)
         {
         }
@@ -35,12 +39,10 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         }
         */
 
-        /*
         public void Disable()
         {
-
+            this._enabled = false;
         }
-        */
 
         /*
         public void DiscardConsoleEntries()
@@ -49,12 +51,10 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         }
         */
 
-        /*
         public void Enable()
         {
-
+            this._enabled = true;
         }
-        */
 
         /*
         public RuntimeEvaluateResponse Evaluate(string expression, string objectGroup, bool? includeCommandLineAPI, bool? silent, int? contextId,
@@ -65,23 +65,56 @@ namespace Jint.DevToolsProtocol.Protocol.Domains
         }
         */
 
+        private class Prop
+        {
+            public string Name { get; }
+            public Runtime.Descriptors.PropertyDescriptor Descriptor { get; }
+            public bool IsOwn { get; }
+            public JsValue Value => Descriptor.Value;
+
+            public Prop(KeyValuePair<JsValue, Runtime.Descriptors.PropertyDescriptor> prop, bool isOwn = true)
+            {
+                Name = prop.Key.ToString();
+                Descriptor = prop.Value;
+                IsOwn = isOwn;
+            }
+        }
+
         public PropertiesResponse GetProperties(string objectId, bool? ownProperties, bool? accessorPropertiesOnly, bool? generatePreview)
         {
-            var obj = _agent.RuntimeData.GetObject(objectId);
-            if (obj == null)
+            var data = _agent.RuntimeData.GetObject(objectId);
+            if (data == null)
             {
                 return null;
             }
+            var obj = data.Instance;
 
-            var props = obj.GetOwnProperties().Select(pair => new { Name = pair.Key.ToString(), Value = pair.Value.Value });
+            var props = obj.GetOwnProperties().Select(p => new Prop(p, isOwn: true));
+
+            // TODO: Entire prototype chain?
+            if (!data.IsScope && ownProperties != true && obj.Prototype != null)
+            {
+                props = props.Concat(obj.Prototype.GetOwnProperties().Select(p => new Prop(p, isOwn: false)));
+            }
+
+            if (accessorPropertiesOnly == true)
+            {
+                props = props.Where(p => p.Descriptor is Runtime.Descriptors.GetSetPropertyDescriptor);
+            }
             return new PropertiesResponse
             {
                 Result = props.Select(p => new PropertyDescriptor
                 {
-                    IsOwn = true,
-                    Configurable = false,
                     Name = p.Name,
-                    Value = _agent.RuntimeData.GetRemoteObject(p.Value, generatePreview: true)
+                    Value = p.Value != null ? _agent.RuntimeData.GetRemoteObject(p.Value, generatePreview: generatePreview == true) : null,
+                    IsOwn = p.IsOwn,
+                    Configurable = p.Descriptor.Configurable,
+                    Enumerable = p.Descriptor.Enumerable,
+                    Writable = p.Descriptor.Writable,
+                    Get = p.Descriptor.Get != null ? _agent.RuntimeData.GetRemoteObject(p.Descriptor.Get) : null,
+                    Set = p.Descriptor.Set != null ? _agent.RuntimeData.GetRemoteObject(p.Descriptor.Set) : null,
+                    // TODO: Thrown
+                    // TODO: Symbol
                 }).ToArray()
             };
         }

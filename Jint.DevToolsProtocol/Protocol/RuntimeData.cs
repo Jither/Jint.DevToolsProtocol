@@ -12,6 +12,7 @@ using System.Text;
 
 namespace Jint.DevToolsProtocol.Protocol
 {
+
     public class RuntimeData
     {
         private readonly Engine _engine;
@@ -23,12 +24,11 @@ namespace Jint.DevToolsProtocol.Protocol
         /// Dictionary of SourceData by Script ID (ID used in communication with devtools)
         /// </summary>
         private Dictionary<string, SourceData> _sourcesByScriptId = new Dictionary<string, SourceData>();
-        
-        private Dictionary<string, ObjectInstance> _objectsById = new Dictionary<string, ObjectInstance>();
-        private Dictionary<ObjectInstance, string> _idsByObject = new Dictionary<ObjectInstance, string>();
-        private Dictionary<string, List<string>> _objectGroups = new Dictionary<string, List<string>>();
+
+        private ObjectDataMap _objectData = new ObjectDataMap();
 
         private int _nextBreakPointId = 1;
+
         private readonly Dictionary<string, BreakPoint> _breakPoints = new Dictionary<string, BreakPoint>();
         private readonly Dictionary<string, PendingBreakPoint> _pendingBreakPoints = new Dictionary<string, PendingBreakPoint>();
 
@@ -83,8 +83,7 @@ namespace Jint.DevToolsProtocol.Protocol
 
         public string AddPendingBreakPoint(PendingBreakPoint breakPoint)
         {
-            string id = _nextBreakPointId.ToString();
-            _nextBreakPointId++;
+            string id = (_nextBreakPointId++).ToString();
             _pendingBreakPoints.Add(id, breakPoint);
             return id;
         }
@@ -117,11 +116,10 @@ namespace Jint.DevToolsProtocol.Protocol
         {
             if (scope.BindingObject != null)
             {
-                return GetRemoteObject(scope.BindingObject, generatePreview: true);
+                return GetRemoteObject(scope.BindingObject, generatePreview: true, isScope: true);
             }
 
             // Create transient object for scope object
-            // TODO: Fill it
             ObjectInstance obj = _engine.Object.Construct(Array.Empty<JsValue>());
             foreach (var name in scope.BindingNames)
             {
@@ -131,64 +129,37 @@ namespace Jint.DevToolsProtocol.Protocol
                     scope.GetBindingValue(name) ?? JsValue.Undefined,
                     false, false, false);
             }
-            return GetRemoteObject(obj, generatePreview: true);
+            return GetRemoteObject(obj, generatePreview: true, isScope: true);
         }
 
-        public RemoteObject GetRemoteObject(JsValue value, bool generatePreview = false, string objectGroup = null)
+        public RemoteObject GetRemoteObject(JsValue value, bool generatePreview = false, string objectGroup = null, bool isScope = false)
         {
-            string id = null;
+            int? id = null;
             if (value is ObjectInstance obj)
             {
-                if (!this._idsByObject.TryGetValue(obj, out id))
-                {
-                    id = _objectsById.Count.ToString() + 1;
-                    _idsByObject.Add(obj, id);
-                    _objectsById.Add(id, obj);
-
-                    if (objectGroup != null)
-                    {
-                        List<string> group;
-                        if (!this._objectGroups.TryGetValue(objectGroup, out group))
-                        {
-                            group = new List<string>();
-                        }
-                        group.Add(id);
-                    }
-                }
+                var data = _objectData.GetOrAdd(obj, objectGroup, isScope);
+                id = data.Id;
             }
 
             return new RemoteObject(value, generatePreview)
             {
-                ObjectId = id
+                ObjectId = id?.ToString()
             };
         }
 
-        public ObjectInstance GetObject(string id)
+        public ObjectData GetObject(string id)
         {
-            if (_objectsById.TryGetValue(id, out var obj))
-            {
-                return obj;
-            }
-            return null;
+            return _objectData[Int32.Parse(id)];
         }
 
         public void ReleaseObject(string id)
         {
-            _objectsById.TryGetValue(id, out ObjectInstance obj);
-            _objectsById.Remove(id);
-            _idsByObject.Remove(obj);
+            _objectData.Release(Int32.Parse(id));
         }
 
         public void ReleaseObjectGroup(string objectGroup)
         {
-            if (_objectGroups.TryGetValue(objectGroup, out var ids))
-            {
-                foreach (var id in ids)
-                {
-                    ReleaseObject(id);
-                }
-            }
-            _objectGroups.Remove(objectGroup);
+            _objectData.ReleaseGroup(objectGroup);
         }
     }
 
