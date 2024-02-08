@@ -1,5 +1,7 @@
 # Chrome devtools protocol implementation for Jint
 
+__No active development on this:__ Focus was moved to [Jint.DebugAdapter](https://github.com/Jither/Jint.DebugAdapter), which is more suitable for Jint debugging.
+
 Still at the *very* experimental/non-functional stage. Also built against a still private branch of Jint (see https://github.com/Jither/jint/tree/devtools-protocol).
 
 The goal is to implement the relevant parts of the devtools `Debugger` and `Runtime` domains - possibly the other `v8-only` parts.
